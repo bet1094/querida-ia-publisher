@@ -1,0 +1,8 @@
+{
+  "caption": "Texto del pie de foto completo, con saltos de linea y hashtags al final.\n\n#IAIndustrial #DataAnalyticsJunior",
+  "images": [
+    "images/post-002-slide-1.jpg",
+    "images/post-002-slide-2.jpg",
+    "images/post-002-slide-3.jpg"
+  ]
+}

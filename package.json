@@ -1,0 +1,13 @@
+{
+  "name": "querida-ia-publisher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Publicador automatico de carruseles en Instagram para la cuenta Querida IA",
+  "type": "module",
+  "scripts": {
+    "publish": "node src/publish.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

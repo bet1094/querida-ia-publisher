@@ -1,0 +1,41 @@
+name: Publicar en Instagram
+
+on:
+  schedule:
+    # 08:00 UTC = 09:00 hora de Madrid en invierno / 10:00 en verano.
+    # Ajusta la hora aqui si quieres publicar a otra hora. Dias: 1=lun 2=mar 3=mie 4=jue 5=vie 6=sab 0=dom
+    - cron: "0 8 * * 1,2,4,5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publicar siguiente carrusel en cola
+        env:
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: node src/publish.js
+
+      - name: Guardar cambios en la cola
+        run: |
+          git config user.name "querida-ia-publisher-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add queue/
+          if git diff --cached --quiet; then
+            echo "Sin cambios que confirmar."
+          else
+            git commit -m "chore: registra publicacion automatica"
+            git push
+          fi
