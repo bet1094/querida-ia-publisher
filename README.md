@@ -102,10 +102,13 @@ para obtener el **Instagram Business Account ID**. Ese número es tu
 1. Crea un repositorio nuevo **público** en GitHub (por ejemplo
    `querida-ia-publisher`).
 2. Súbelo desde esta carpeta (te paso los comandos abajo).
-3. En GitHub, ve a **Settings → Secrets and variables → Actions** y crea dos
+3. En GitHub, ve a **Settings → Secrets and variables → Actions** y crea estos
    *secrets*:
    - `IG_BUSINESS_ACCOUNT_ID`
    - `IG_ACCESS_TOKEN`
+   - `FB_PAGE_ID` (opcional — solo si quieres que también publique en la
+     página de Facebook; es el mismo Page ID que sacaste con `GET
+     /me/accounts`, no es secreto pero se guarda igual por prolijidad)
 4. El workflow en `.github/workflows/publish.yml` ya queda activo solo: se
    ejecuta automáticamente lunes, martes, jueves y viernes a las 08:00 UTC.
    También puedes lanzarlo manualmente desde la pestaña **Actions → Publicar

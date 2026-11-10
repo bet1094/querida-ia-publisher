@@ -1,7 +1,11 @@
-// Publica el siguiente carrusel en cola a Instagram usando la Graph API oficial.
+// Publica el siguiente carrusel en cola a Instagram (y opcionalmente Facebook)
+// usando la Graph API oficial.
 // Requiere las variables de entorno:
 //   IG_BUSINESS_ACCOUNT_ID  -> ID de la cuenta de Instagram profesional
 //   IG_ACCESS_TOKEN         -> Token de acceso de larga duracion (o de system user)
+// Opcional, para publicar tambien en la pagina de Facebook:
+//   FB_PAGE_ID              -> ID de la pagina de Facebook "Querida IA"
+//   (usa el mismo IG_ACCESS_TOKEN si el usuario del sistema administra la pagina)
 // Y, para construir las URLs publicas de las imagenes:
 //   GITHUB_REPOSITORY       -> "owner/repo" (GitHub Actions lo define solo)
 //   GITHUB_REF_NAME         -> rama desde la que se sirven las imagenes (ej. "main")
@@ -95,6 +99,47 @@ async function publishContainer(containerId, igUserId, accessToken) {
   return data.id;
 }
 
+async function getPageAccessToken(pageId, systemUserToken) {
+  const url = new URL(`${GRAPH_BASE}/${pageId}`);
+  url.searchParams.set("fields", "access_token");
+  url.searchParams.set("access_token", systemUserToken);
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok || data.error || !data.access_token) {
+    throw new Error(`No se pudo obtener el token de la pagina ${pageId}: ${JSON.stringify(data.error || data)}`);
+  }
+  return data.access_token;
+}
+
+async function uploadUnpublishedPhoto(pageId, imageUrl, pageAccessToken) {
+  const data = await graphPost(`${pageId}/photos`, {
+    url: imageUrl,
+    published: "false",
+    access_token: pageAccessToken,
+  });
+  return data.id;
+}
+
+async function publishToFacebookPage(pageId, systemUserToken, images, caption) {
+  const pageAccessToken = await getPageAccessToken(pageId, systemUserToken);
+
+  const photoIds = [];
+  for (const imagePath of images) {
+    const imageUrl = publicImageUrl(imagePath);
+    const photoId = await uploadUnpublishedPhoto(pageId, imageUrl, pageAccessToken);
+    photoIds.push(photoId);
+    console.log(`  [Facebook] Imagen subida: ${imagePath} -> foto ${photoId}`);
+  }
+
+  const attachedMedia = photoIds.map((id) => JSON.stringify({ media_fbid: id }));
+  const data = await graphPost(`${pageId}/feed`, {
+    message: caption,
+    access_token: pageAccessToken,
+    ...Object.fromEntries(attachedMedia.map((m, i) => [`attached_media[${i}]`, m])),
+  });
+  return data.id;
+}
+
 async function main() {
   const igUserId = requireEnv("IG_BUSINESS_ACCOUNT_ID");
   const accessToken = requireEnv("IG_ACCESS_TOKEN");
@@ -128,7 +173,17 @@ async function main() {
   await waitUntilFinished(carouselContainerId, accessToken);
 
   const publishedId = await publishContainer(carouselContainerId, igUserId, accessToken);
-  console.log(`Publicado con exito. Instagram media id: ${publishedId}`);
+  console.log(`Publicado con exito en Instagram. Media id: ${publishedId}`);
+
+  let facebookPostId = null;
+  const fbPageId = process.env.FB_PAGE_ID;
+  if (fbPageId) {
+    console.log("Publicando tambien en la pagina de Facebook...");
+    facebookPostId = await publishToFacebookPage(fbPageId, accessToken, post.images, post.caption);
+    console.log(`Publicado con exito en Facebook. Post id: ${facebookPostId}`);
+  } else {
+    console.log("FB_PAGE_ID no esta configurado; se omite la publicacion en Facebook.");
+  }
 
   await mkdir(PUBLISHED_DIR, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -136,6 +191,7 @@ async function main() {
     ...post,
     published_at: new Date().toISOString(),
     instagram_media_id: publishedId,
+    facebook_post_id: facebookPostId,
   };
   await writeFile(
     path.join(PUBLISHED_DIR, `${stamp}-${file}`),
